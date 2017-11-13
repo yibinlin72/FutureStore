@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Future Store</string>
+    <string name ="create_account">No account yet? Create one</string>
+    <string name ="member_login">Already a member? Login</string>
+</resources>
