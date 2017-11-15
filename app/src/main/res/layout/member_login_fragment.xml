@@ -4,10 +4,40 @@
     android:layout_height="match_parent">
 
     <TextView
-        android:id="@+id/textView3"
+        android:id="@+id/lbl_email"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Member Login" />
+        android:text="Email"
+        android:textAppearance="@android:style/TextAppearance.Large" />
+
+    <EditText
+        android:id="@+id/txt_email"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ems="10"
+        android:inputType="textEmailAddress"
+        android:text="u11firebase@gmail.com" />
+
+    <TextView
+        android:id="@+id/lbl_password"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Password"
+        android:textAppearance="@android:style/TextAppearance.Large" />
+
+    <EditText
+        android:id="@+id/txt_password"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ems="10"
+        android:inputType="textPassword"
+        android:text="123456" />
+
+    <Button
+        android:id="@+id/btn_login"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="LOGIN" />
 
     <Button
         android:id="@+id/btn_to_signup"
