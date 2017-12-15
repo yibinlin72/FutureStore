@@ -1,7 +1,8 @@
 package tw.org.itri.citc.w.futurestore.member;
 
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentTransaction;
@@ -11,48 +12,46 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.TextView;
 import android.widget.Toast;
 
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.Task;
-import com.google.firebase.auth.AuthResult;
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.iid.FirebaseInstanceId;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
+import java.io.IOException;
+import java.util.concurrent.TimeUnit;
+
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 import tw.org.itri.citc.w.futurestore.R;
 
 public class MemberLoginFragment extends Fragment{
     private static final String TAG = "MemberLoginFragment";
+
+    OkHttpClient mOkHttpClient;
+    public static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
 
     private Button btn_login;
     private Button btn_to_signup;
     private EditText txt_email;
     private EditText txt_password;
 
-    private FirebaseAuth mAuth;
-    private FirebaseAuth.AuthStateListener mAuthListener;
+    private SharedPreferences user_settings;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        mAuth = FirebaseAuth.getInstance();
-        mAuthListener = new FirebaseAuth.AuthStateListener() {
-            @Override
-            public void onAuthStateChanged(@NonNull FirebaseAuth firebaseAuth) {
-                FirebaseUser user = firebaseAuth.getCurrentUser();
-                if (user != null) {
-                    // User is signed in
-                    Log.d(TAG, "onAuthStateChanged:signed_in:" + user.getUid());
-                    FragmentTransaction trans = getFragmentManager().beginTransaction();
-                    trans.replace(R.id.member_root_frame, new MemberQRCodeFragment());
-                    trans.commit();
-                } else {
-                    // User is signed out
-                    Log.d(TAG, "onAuthStateChanged:signed_out");
-                }
-            }
-        };
+
+        mOkHttpClient = new OkHttpClient.Builder()
+                .connectTimeout(10, TimeUnit.SECONDS)
+                .build();
+
+        user_settings = getActivity().getSharedPreferences("USER", Context.MODE_PRIVATE);
     }
 
     @Nullable
@@ -70,7 +69,7 @@ public class MemberLoginFragment extends Fragment{
                 String email = txt_email.getText().toString();
                 String password = txt_password.getText().toString();
                 Log.d(TAG, email+"/"+password);
-                signIn(email, password);
+                signIn(email, password, FirebaseInstanceId.getInstance().getToken());
             }
         });
 
@@ -87,38 +86,68 @@ public class MemberLoginFragment extends Fragment{
         return view;
     }
 
-    @Override
-    public void onStart() {
-        super.onStart();
-        mAuth.addAuthStateListener(mAuthListener);
-    }
+    private void signIn(final String email, String password, String fcmToken) {
+        Log.d(TAG, "signIn with :" + email);
 
-    @Override
-    public void onStop() {
-        super.onStop();
-        if (mAuthListener != null) {
-            mAuth.removeAuthStateListener(mAuthListener);
-        }
-    }
+        final Gson gson = new Gson();
 
-    private void signIn(String email, String password) {
-        Log.d(TAG, "signIn:" + email);
+        String url = "http://140.96.178.1:8081/app/login/";
+        final LoginRequest loginRequest = new LoginRequest();
+        loginRequest.setAccount(email);
+        loginRequest.setPassword(password);
+        //TODO: 改回 fcmToken
+        loginRequest.setFcmToken("fcmtoken12345");
+//        loginRequest.setFcmToken(fcmToken);
+        String jsonRequest = gson.toJson(loginRequest);
+        Log.d(TAG, "Request = " + jsonRequest);
 
-        mAuth.signInWithEmailAndPassword(email, password)
-                .addOnCompleteListener(getActivity(), new OnCompleteListener<AuthResult>() {
-                    @Override
-                    public void onComplete(@NonNull Task<AuthResult> task) {
-                        Log.d(TAG, "signInWithEmail:onComplete:" + task.isSuccessful());
+        RequestBody body = RequestBody.create(JSON, jsonRequest);
+        Request request = new Request.Builder()
+                .url(url)
+                .post(body)
+                .build();
 
-                        // If sign in fails, display a message to the user. If sign in succeeds
-                        // the auth state listener will be notified and logic to handle the
-                        // signed in user can be handled in the listener.
-                        if (!task.isSuccessful()) {
-                            Log.w(TAG, "signInWithEmail:failed", task.getException());
-                            Toast.makeText(getActivity(), "Login failed", Toast.LENGTH_SHORT).show();
+        Call call = mOkHttpClient.newCall(request);
+        call.enqueue(new Callback() {
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                String jsonResponse = response.body().string();
+                Log.d(TAG, "length of response=" + jsonResponse.length());
+                Log.d(TAG, "Response = " + jsonResponse);
+
+                final LoginResponse loginResponse = gson.fromJson(jsonResponse, new TypeToken<LoginResponse>(){}.getType());
+                Log.d(TAG, "msg= " + loginResponse.getMsg());
+                Log.d(TAG, "uuid= " + loginResponse.getUuid());
+                String uuid = loginResponse.getUuid().trim();
+                if (!uuid.equals("")) {
+                    user_settings.edit()
+                            .putString("UUID", loginResponse.getUuid())
+                            .putString("EMAIL", email)
+                            .commit();
+
+                    FragmentTransaction trans = getFragmentManager().beginTransaction();
+                    trans.replace(R.id.member_root_frame, new MemberQRCodeFragment());
+                    trans.commit();
+                } else {
+                    //告知使用者認證失敗
+                    getActivity().runOnUiThread(new Runnable() {
+                        public void run() {
+                            Toast.makeText(getActivity(), "Login failed: " + loginResponse.getMsg(), Toast.LENGTH_SHORT).show();
                         }
+                    });
+                }
+            }
+            @Override
+            public void onFailure(Call call, final IOException e) {
+                //告知使用者連線失敗
+                getActivity().runOnUiThread(new Runnable() {
+                    public void run() {
+                        Toast.makeText(getActivity(), "Login failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                     }
                 });
+                Log.d(TAG, e.getMessage());
+            }
+        });
     }
 
 }

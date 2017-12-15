@@ -16,7 +16,7 @@
         android:layout_height="wrap_content"
         android:ems="10"
         android:inputType="textEmailAddress"
-        android:text="u11firebase@gmail.com" />
+        android:text="JudyChung@itri.org.tw" />
 
     <TextView
         android:id="@+id/lbl_password"
@@ -31,7 +31,7 @@
         android:layout_height="wrap_content"
         android:ems="10"
         android:inputType="textPassword"
-        android:text="123456" />
+        android:text="12345" />
 
     <Button
         android:id="@+id/btn_login"

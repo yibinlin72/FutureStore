@@ -1,22 +1,18 @@
 package tw.org.itri.citc.w.futurestore.member;
 
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentTransaction;
-import android.support.v7.widget.AppCompatImageView;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.animation.Animation;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
-
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseUser;
 
 import android.graphics.Bitmap;
 import android.graphics.Color;
@@ -35,37 +31,21 @@ import tw.org.itri.citc.w.futurestore.R;
 public class MemberQRCodeFragment extends Fragment {
     private static final String TAG = "MemberQRCodeFragment";
 
+    private SharedPreferences user_settings;
+    private String uuid;
+    private String email;
+
     private TextView lbl_account_info;
     private ImageView iv_qrcode;
     private Button btn_logout;
-
-    private FirebaseAuth mAuth;
-    private FirebaseAuth.AuthStateListener mAuthListener;
-    private FirebaseUser user;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        mAuth = FirebaseAuth.getInstance();
-        user = mAuth.getCurrentUser();
-        mAuthListener = new FirebaseAuth.AuthStateListener() {
-            @Override
-            public void onAuthStateChanged(@NonNull FirebaseAuth firebaseAuth) {
-                FirebaseUser user = firebaseAuth.getCurrentUser();
-                if (user != null) {
-                    // User is signed in
-                    Log.d(TAG, "onAuthStateChanged:signed_in:" + user.getUid());
-                } else {
-                    // User is signed out
-                    Log.d(TAG, "onAuthStateChanged:signed_out");
-                    FragmentTransaction trans = getFragmentManager().beginTransaction();
-                    trans.replace(R.id.member_root_frame, new MemberLoginFragment());
-                    trans.commit();
-                }
-            }
-        };
-
+        user_settings = getActivity().getSharedPreferences("USER", Context.MODE_PRIVATE);
+        uuid = user_settings.getString("UUID", "");
+        email = user_settings.getString("EMAIL", "");
     }
 
     @Nullable
@@ -74,34 +54,26 @@ public class MemberQRCodeFragment extends Fragment {
         View view = inflater.inflate(R.layout.member_qrcode_fragment, container, false);
 
         lbl_account_info = (TextView) view.findViewById(R.id.lbl_account_info);
-        lbl_account_info.setText("Hello, " + user.getEmail());
+        lbl_account_info.setText("Hello, " + email);
 
         iv_qrcode = (ImageView) view.findViewById(R.id.iv_qrcode);
-        generateQRCode(iv_qrcode, user.getEmail(), 250, 250);
+        generateQRCode(iv_qrcode, uuid, 250, 250);
 
         btn_logout = (Button) view.findViewById(R.id.btn_logout);
         btn_logout.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                FirebaseAuth.getInstance().signOut();
+                user_settings.edit()
+                        .putString("UUID", "")
+                        .putString("EMAIL", "")
+                        .commit();
+                FragmentTransaction trans = getFragmentManager().beginTransaction();
+                trans.replace(R.id.member_root_frame, new MemberLoginFragment());
+                trans.commit();
             }
         });
 
         return view;
-    }
-
-    @Override
-    public void onStart() {
-        super.onStart();
-        mAuth.addAuthStateListener(mAuthListener);
-    }
-
-    @Override
-    public void onStop() {
-        super.onStop();
-        if (mAuthListener != null) {
-            mAuth.removeAuthStateListener(mAuthListener);
-        }
     }
 
     private void generateQRCode(ImageView imageView, String QRCodeContent, int QRCodeWidth, int QRCodeHeight) {
@@ -126,7 +98,6 @@ public class MemberQRCodeFragment extends Fragment {
             imageView.setImageBitmap(bitmap);
         }
         catch (WriterException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
     }

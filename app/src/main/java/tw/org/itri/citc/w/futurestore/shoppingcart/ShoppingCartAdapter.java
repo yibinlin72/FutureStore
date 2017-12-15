@@ -18,7 +18,7 @@ public class ShoppingCartAdapter extends BaseAdapter {
     private List<Product> products;
     private Context context;
 
-    public ShoppingCartAdapter(List<Product> products, Context context) {
+    public ShoppingCartAdapter(Context context, List<Product> products) {
         this.products = products;
         this.context = context;
     }
@@ -63,10 +63,16 @@ public class ShoppingCartAdapter extends BaseAdapter {
         holder.item_product_name.setText(products.get(position).getName());
         holder.item_product_price.setText("" + products.get(position).getPrice());
         holder.item_product_quantity.setText("" + products.get(position).getQuantity());
-        holder.item_subtotal.setText("NT$ " + products.get(position).getPrice() * products.get(position).getQuantity());
+        holder.item_subtotal.setText("NT$ " + products.get(position).getSubTotal());
 
         v.setTag(holder);
         return v;
+    }
+
+    public void refreshCart(List<Product> products) {
+        this.products.clear();
+        this.products.addAll(products);
+        notifyDataSetChanged();
     }
 
     private static class ViewHolder{
